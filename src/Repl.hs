@@ -9,7 +9,6 @@ import Module (initialContext)
 
 import Data.Bifunctor (first)
 import System.IO
-import Text.Parsec (parse)
 
 data ReplState = ReplState Context
 
@@ -17,7 +16,7 @@ processLine :: ReplState -> IO ReplState
 processLine (ReplState ctx) = do -- IO
     line <- getLine
     r <- return (do -- Either InterpreterError
-        exp <- first ParserError $ parse parseExpr "repl input" line
+        exp <- parse "repl input" parseExpr line
         (t, v) <- typecheck ctx exp
         return (reduce t, reduce v))
     case r of

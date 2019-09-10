@@ -4,23 +4,14 @@ module Graph (
     checkReferences
 ) where
 
+import Data
 import Parser
-import {-# SOURCE #-} Interpret (Value)
 
 import Control.Monad
 import Data.List
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Text.Parsec (ParseError)
-
-data InterpreterError =
-      ParserError ParseError
-    | MissingTypeDecError Label
-    | MissingDecError Label
-    | CyclicDependenciesError [Label]
-    | UnknownNameError Label
-    | TypeError Value Value -- expected, actual
-    deriving Show
 
 -- There's a distinction between which variables are necessary to determine typing, and which are only necessary for evaluation, which may be useful later, but I'm not using it yet.
 allFreeVariables :: Expr -> [Label]

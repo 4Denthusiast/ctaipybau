@@ -6,14 +6,11 @@ module Interpret (
     evalDefinition,
 ) where
 
-import Parser
-import Graph (InterpreterError(..))
+import Data
 
 import Data.Map.Lazy (Map)
 import qualified Data.Map.Lazy as M
 import Data.Maybe
-
-data Value = VVariable Label | VPi Label Value Value | VLambda Label Value | VApp Value Value | VBlank | VInt Int | TInt | TType | VPrimitive String (Value -> Maybe Value) -- TODO: explicitly include arity in VPrimitive rather than leaving it curried, so partially applied versions can be treated properly.
 
 -- TODO: Include α-conversion, and possibly other things, in this equality.
 instance Eq Value where
@@ -27,17 +24,6 @@ instance Eq Value where
     (==) TType TType                        = True
     (==) (VPrimitive n _) (VPrimitive n' _) = n == n'
     (==) _ _                                = False
-
-instance Show Value where
-    show (VVariable l) = l
-    show (VPi l a r) = "Π"++l++" : "++show a++" -> "++show r
-    show (VLambda l r) = "λ"++l++" -> "++show r
-    show (VApp f a) = "("++show f++") ("++show a++")"
-    show VBlank = "_"
-    show (VInt i) = show i
-    show TInt = "Int"
-    show TType = "Type"
-    show (VPrimitive n f) = n
 
 type Context = Map Label (Value, Maybe Value)
 
