@@ -12,26 +12,30 @@ type Label = String
 
 data Expr = EVariable Label | EPi Label Expr Expr | ELambda Label Expr Expr | EApp Expr Expr | EInt Int | EType
 
-data Value = VVariable Label | VPi Label Value Value | VLambda Label Value | VApp Value Value | VBlank | VInt Int | TInt | TType | VPrimitive String (Value -> Maybe Value) -- TODO: explicitly include arity in VPrimitive rather than leaving it curried, so partially applied versions can be treated properly.
+data Value = VVariable Label | VPi Label Value Value | VLambda Label Value | VApp Value Value | VBlank | VInt Int | TInt | TType | VPrimitive String ([Value] -> Maybe Value) Int [Value] -- TODO: explicitly include arity in VPrimitive rather than leaving it curried, so partially applied versions can be treated properly.
+
+--These are used so much, appreviations help.
+ss = showString
+sp n = showParen . (n >)
 
 instance Show Expr where
-    show (EVariable l) = l
-    show (EPi l a r) = "∏"++l++" : "++show a++" -> "++show r
-    show (ELambda l a r) = "λ"++l++" : "++show a++" -> "++show r
-    show (EApp f a) = "("++show f++") ("++show a++")"
-    show (EInt i) = show i
-    show EType = "Type"
+    showsPrec _ (EVariable l) = ss l
+    showsPrec n (EPi l a r) = sp n 8 $ ss ("∏"++l++":") . showsPrec 11 a . ss " -> " . showsPrec 8 r
+    showsPrec n (ELambda l a r) = sp n 8 $ ss ("λ"++l++":") . showsPrec 11 a . ss " -> " . showsPrec 8 r
+    showsPrec n (EApp f a) = sp n 10 $ showsPrec 10 f . showsPrec 11 a
+    showsPrec _ (EInt i) = shows i
+    showsPrec _ EType = ss "Type"
 
 instance Show Value where
-    show (VVariable l) = l
-    show (VPi l a r) = "∏"++l++" : "++show a++" -> "++show r
-    show (VLambda l r) = "λ"++l++" -> "++show r
-    show (VApp f a) = "("++show f++") ("++show a++")"
-    show VBlank = "_"
-    show (VInt i) = show i
-    show TInt = "Int"
-    show TType = "Type"
-    show (VPrimitive n f) = n
+    showsPrec _ (VVariable l) = ss l
+    showsPrec n (VPi l a r) = sp n 8 $ ss ("∏"++l++":") . showsPrec 11 a . ss " -> " . showsPrec 8 r
+    showsPrec n (VLambda l r) = sp n 8 $ ss ("λ"++l++" -> ") . showsPrec 8 r
+    showsPrec n (VApp f a) = sp n 10 $ showsPrec 10 f . showsPrec 11 a
+    showsPrec _ VBlank = ss "_"
+    showsPrec _ (VInt i) = shows i
+    showsPrec _ TInt = ss "Int"
+    showsPrec _ TType = ss "Type"
+    showsPrec n (VPrimitive l _ _ as) = sp n 10 $ foldl (\s a -> s . ss " " . showsPrec 11 a) (ss l) as
 
 data InterpreterError =
       ParserError ParseError

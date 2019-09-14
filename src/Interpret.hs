@@ -14,16 +14,16 @@ import Data.Maybe
 
 -- TODO: Include α-conversion, and possibly other things, in this equality.
 instance Eq Value where
-    (==) (VVariable l) (VVariable l')       = l == l'
-    (==) (VPi l a r) (VPi l' a' r')         = l == l' && a == a' && r == r'
-    (==) (VLambda l r) (VLambda l' r')      = l == l' && r == r'
-    (==) (VApp f a) (VApp f' a')            = f == f' && a == a'
-    (==) VBlank VBlank                      = True
-    (==) (VInt i) (VInt i')                 = i == i'
-    (==) TInt TInt                          = True
-    (==) TType TType                        = True
-    (==) (VPrimitive n _) (VPrimitive n' _) = n == n'
-    (==) _ _                                = False
+    (==) (VVariable l) (VVariable l')  = l == l'
+    (==) (VPi l a r) (VPi l' a' r')    = l == l' && a == a' && r == r'
+    (==) (VLambda l r) (VLambda l' r') = l == l' && r == r'
+    (==) (VApp f a) (VApp f' a')       = f == f' && a == a'
+    (==) VBlank VBlank                 = True
+    (==) (VInt i) (VInt i')            = i == i'
+    (==) TInt TInt                     = True
+    (==) TType TType                   = True
+    (==) (VPrimitive l _ _ as) (VPrimitive l' _ _ as') = l == l' && as == as'
+    (==) _ _                           = False
 
 type Context = Map Label (Value, Maybe Value)
 
@@ -52,7 +52,7 @@ typecheck ctx (EApp f a) = do
     (l, fat, frt) <- case ft of
         (VPi l' fat' frt') -> return (l', fat', frt')
         _ -> Left $ TypeError ft (VPi "_" VBlank VBlank)
-    (at, av) <- typecheck ctx f
+    (at, av) <- typecheck ctx a
     unify fat at
     return (substitute l av frt, VApp fv av)
 typecheck ctx (EInt i) = return (TInt, VInt i)
@@ -70,7 +70,7 @@ substitute l v = s
           s (VInt i) = VInt i
           s TInt = TInt
           s TType = TType
-          s (VPrimitive n f) = VPrimitive n f
+          s (VPrimitive l f n as) = VPrimitive l f n (map s as)
 
 -- substitute and perform any beta-reductions that result.
 substituteReduce :: Label -> Value -> Value -> Value
@@ -84,6 +84,7 @@ substituteReduce l v = s
           s (VInt i) = VInt i
           s TInt = TInt
           s TType = TType
+          s (VPrimitive l f n as) = applyPrimitive $ VPrimitive l f n (map s as)
 
 -- Apply beta-reduction in strict order.
 reduce :: Value -> Value
@@ -95,12 +96,18 @@ reduce VBlank = VBlank
 reduce (VInt i) = VInt i
 reduce TInt = TInt
 reduce TType = TType
+reduce (VPrimitive l f n as) = applyPrimitive $ VPrimitive l f n (map reduce as)
 
 -- Apply the given function to the given argument.
 headReduce :: Value -> Value -> Value
 headReduce (VLambda l r) a = substituteReduce l a r
-headReduce (VPrimitive n f) a = fromMaybe (VApp (VPrimitive n f) a) (f a)
+headReduce (VPrimitive l f n as) a | length as < n = applyPrimitive $ VPrimitive l f n (as++[a])
 headReduce f a = VApp f a -- Can't apply (e.g. f is App or Variable)
+
+-- If possible, turn a VPrimitive and its collected arguments into the result value.
+applyPrimitive :: Value -> Value
+applyPrimitive p@(VPrimitive _ f _ as) = fromMaybe p (f as)
+applyPrimitive v = error "applyPrimitive is only meant to be applied to VPrimitives."
 
 evalDefinition :: Context -> (Expr, Expr) -> Either InterpreterError (Value, Value)
 evalDefinition ctx (te, ve) = do

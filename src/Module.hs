@@ -16,11 +16,9 @@ initialContext = M.fromList [
         ("Int", (TType, Just TInt)),
         ("+", (
             VPi "x" TInt (VPi "y" TInt TInt),
-            Just $ VPrimitive "+" $ \v -> case v of
-                (VInt x) -> Just $ VPrimitive "+ _" $ \v' -> case v' of
-                    (VInt y) -> Just (VInt (x+y))
-                    _ -> Nothing
-                _ -> Nothing
+            Just $ VPrimitive "+" (\v -> case v of
+                [VInt x, VInt y] -> Just $ VInt (x+y)
+                _ -> Nothing) 2 []
         ))
     ]
 
