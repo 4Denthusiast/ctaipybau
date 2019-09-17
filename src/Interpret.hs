@@ -1,6 +1,4 @@
 module Interpret (
-    Value(..),
-    Context(..),
     typecheck,
     reduce,
     evalDefinition,
@@ -25,8 +23,6 @@ instance Eq Value where
     (==) (VPrimitive l _ _ as) (VPrimitive l' _ _ as') = l == l' && as == as'
     (==) _ _                           = False
 
-type Context = Map Label (Value, Maybe Value)
-
 -- Try to unify types. This will need some sort of context later so it can unify blanks with each other.
 unify :: Value -> Value -> Either InterpreterError ()
 unify t t' = if t == t' then Right () else Left (TypeError t t')
@@ -34,7 +30,7 @@ unify t t' = if t == t' then Right () else Left (TypeError t t')
 -- typechecks then convert to Value, without performing beta-reduction.
 typecheck :: Context -> Expr -> Either InterpreterError (Value, Value)
 typecheck ctx (EVariable l) = case (M.lookup l ctx) of
-    Nothing -> Left (UnknownNameError l)
+    Nothing -> Left (UnknownNameError l) -- This would be an interpreter bug in a module, but could occur in the REPL.
     Just (t, mv) -> Right (t, fromMaybe (VVariable l) mv)
 typecheck ctx (EPi l at rt) = do
     (att, at') <- typecheck ctx at

@@ -1,5 +1,4 @@
 module Graph (
-    InterpreterError(..),
     Module2(..),
     checkReferences
 ) where
@@ -27,8 +26,8 @@ referenceGraph (Module1 tdecs decs) = M.fromList <$> mapM record names
     where names = union (M.keys tdecs) (M.keys decs)
           record l = (\tdec dec -> (l, (union (allFreeVariables tdec) (allFreeVariables dec), tdec, dec))) <$> maybe (Left (MissingTypeDecError l)) Right (M.lookup l tdecs) <*> maybe (Left (MissingDecError l)) Right (M.lookup l decs)
 
-topologicalSort :: Map Label ([Label], Expr, Expr) -> Either InterpreterError [Label]
-topologicalSort g = foldM (searchFrom []) [] (M.keys g)
+topologicalSort :: [Label] -> Map Label ([Label], Expr, Expr) -> Either InterpreterError [Label]
+topologicalSort predefs g = drop (length predefs) <$> reverse <$> foldM (searchFrom []) predefs (M.keys g)
     where searchFrom :: [Label] -> [Label] -> Label -> Either InterpreterError [Label]
           searchFrom stack done l =
               if elem l done then Right done else
@@ -39,8 +38,8 @@ topologicalSort g = foldM (searchFrom []) [] (M.keys g)
 
 data Module2 = Module2 [Label] (Map Label (Expr, Expr))
 
-checkReferences :: Module1 -> Either InterpreterError Module2
-checkReferences m = do
+checkReferences :: Context -> Module1 -> Either InterpreterError Module2
+checkReferences ctx m = do
     m' <- referenceGraph m
-    o <- topologicalSort m'
+    o <- topologicalSort (M.keys ctx) m'
     return (Module2 o ((\(_,t,v) -> (t,v)) <$> m'))

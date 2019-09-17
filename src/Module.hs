@@ -1,9 +1,11 @@
 module Module (
     initialContext,
-    interpretModule
+    interpretModule,
+    processModule,
 ) where
 
-import Parser (Label)
+import Data
+import Parser
 import Graph
 import Interpret
 
@@ -27,3 +29,6 @@ interpretModule :: Module2 -> Either InterpreterError Context
 interpretModule (Module2 ls defs) = foldM interpretDef initialContext ls
     where interpretDef :: Context -> Label -> Either InterpreterError Context
           interpretDef ctx l = let (Just def) = M.lookup l defs in (\(t,v) -> M.insert l (t, Just v) ctx) <$> evalDefinition ctx def
+
+processModule :: String -> String -> Either InterpreterError Context
+processModule n mod = parse n parseModule mod >>= checkReferences initialContext >>= interpretModule

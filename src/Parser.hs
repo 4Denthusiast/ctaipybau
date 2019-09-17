@@ -1,7 +1,4 @@
 module Parser (
-    Label,
-    Expr(..),
-    InterpreterError(..),
     Module1(..),
     parseModule,
     parseExpr,
@@ -25,10 +22,11 @@ import Text.Parsec.Combinator (between)
 data Module1 = Module1 {typeDecs :: Map Label Expr, declarations :: Map Label Expr}
 
 whitespace :: Parsec String () ()
-whitespace = void $ many (void PC.space <|> comment)
-    where comment = void $ (try (PC.string "--") >> manyTill commentContents (void PC.endOfLine <|> eof))
+whitespace = flip label "whitespace" $ void $ many (try space <|> comment)
+    where comment = void $ (try (PC.string "--") >> manyTill commentContents (void (lookAhead PC.endOfLine) <|> eof))
                        <|> (try (PC.string "{-") >> manyTill commentContents (PC.string "-}"))
           commentContents = comment <|> void anyToken
+          space = many PC.endOfLine >> void (oneOf " \t") -- Starting on new lines is allowed, provided the new line starts with whitespace.
 
 token :: Parsec String () a -> Parsec String () a
 token p = try $ whitespace >> p
@@ -37,7 +35,7 @@ keyword :: String -> Parsec String () ()
 keyword = token . void . PC.string
 
 parseLabel :: Parsec String () Label
-parseLabel = token $ try $ unreserved $ ((:) <$> PC.letter <*> many PC.alphaNum) <|> many1 (satisfy $ \c -> (isPunctuation c || isSymbol c) && not (elem c ['(',')',',','[',']']))
+parseLabel = token $ flip label "label" $ unreserved $ ((:) <$> PC.letter <*> many PC.alphaNum) <|> many1 (satisfy $ \c -> (isPunctuation c || isSymbol c) && not (elem c ['(',')',',','[',']']))
     where unreserved p = do
               l <- p
               if elem l [":", "->", "\\", "∏", "Type", "="]
@@ -69,7 +67,7 @@ parseDeclaration :: Parsec String () (Label, Expr)
 parseDeclaration = (,) <$> parseLabel <*> (keyword "=" >> parseExpr)
 
 parseModule :: Parsec String () Module1
-parseModule = (uncurry Module1 . bimap M.fromList M.fromList . partitionEithers . catMaybes) <$> sepBy (return Nothing <|> Just <$> (Left <$> parseTypeDec <|> Right <$> parseDeclaration)) PC.endOfLine
+parseModule = (uncurry Module1 . bimap M.fromList M.fromList . partitionEithers . catMaybes) <$> sepBy (Just <$> (Left <$> try parseTypeDec <|> Right <$> try parseDeclaration) <|> (try whitespace >> return Nothing)) PC.endOfLine
 
 parse :: String -> Parsec String () a -> String -> Either InterpreterError a
 parse name p s = first ParserError $ Parsec.parse (do x <- p; whitespace; eof; return x) name s
