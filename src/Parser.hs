@@ -24,7 +24,7 @@ data Module1 = Module1 {typeDecs :: Map Label Expr, declarations :: Map Label Ex
 whitespace :: Parsec String () ()
 whitespace = flip label "whitespace" $ void $ many (try space <|> comment)
     where comment = void $ (try (PC.string "--") >> manyTill commentContents (void (lookAhead PC.endOfLine) <|> eof))
-                       <|> (try (PC.string "{-") >> manyTill commentContents (PC.string "-}"))
+                       <|> (try (PC.string "{-") >> manyTill commentContents (try $ PC.string "-}"))
           commentContents = comment <|> void anyToken
           space = many PC.endOfLine >> void (oneOf " \t") -- Starting on new lines is allowed, provided the new line starts with whitespace.
 
@@ -35,10 +35,10 @@ keyword :: String -> Parsec String () ()
 keyword = token . void . PC.string
 
 parseLabel :: Parsec String () Label
-parseLabel = token $ flip label "label" $ unreserved $ ((:) <$> PC.letter <*> many PC.alphaNum) <|> many1 (satisfy $ \c -> (isPunctuation c || isSymbol c) && not (elem c ['(',')',',','[',']']))
+parseLabel = token $ flip label "label" $ unreserved $ ((:) <$> PC.letter <*> many (PC.alphaNum <|> PC.oneOf "'_")) <|> many1 (satisfy $ \c -> (isPunctuation c || isSymbol c) && not (elem c ['(',')',',','[',']']))
     where unreserved p = do
               l <- p
-              if elem l [":", "->", "\\", "∏", "Type", "="]
+              if elem l [":", "->", "λ", "\\", "∏", "'\\", "Type", "="]
                   then parserZero
                   else return l
 
@@ -49,14 +49,17 @@ parseInteger = token $ do
     return $ (if minus then (-1) else 1) * foldl (\n d -> n*10 + fromEnum d - fromEnum '0') 0 digits
 
 parseExpr :: Parsec String () Expr
-parseExpr = chainl1 parseTerm (return EApp)
+parseExpr = chainr1 parseExpr1 (keyword "->" >> return (EPi "_"))
+
+parseExpr1 :: Parsec String () Expr
+parseExpr1 = chainl1 parseTerm (return EApp)
 
 parseTerm :: Parsec String () Expr
 parseTerm =
         between (keyword "(") (keyword ")") parseExpr
     <|> EInt <$> parseInteger
-    <|> EPi <$> (keyword "∏" >> parseLabel) <*> (keyword ":" >> parseExpr) <*> (keyword "->" >> parseExpr)
-    <|> ELambda <$> (keyword "\\" >> parseLabel) <*> (keyword ":" >> parseExpr) <*> (keyword "->" >> parseExpr)
+    <|> EPi <$> ((keyword "∏" <|> keyword "'\\") >> parseLabel) <*> (keyword ":" >> parseExpr1) <*> (keyword "->" >> parseExpr)
+    <|> (flip $ foldr $ uncurry ELambda) <$> ((keyword "λ" <|> keyword "\\") >> sepBy1 ((,) <$> parseLabel <*> (keyword ":" >> parseExpr1)) (keyword ",")) <*> (keyword "->" >> parseExpr)
     <|> (keyword "Type" >> return EType)
     <|> EVariable <$> parseLabel
 

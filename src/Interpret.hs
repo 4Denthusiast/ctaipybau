@@ -23,17 +23,6 @@ instance Eq Value where
     (==) (VPrimitive l _ _ as) (VPrimitive l' _ _ as') = l == l' && as == as'
     (==) _ _                           = False
 
-isFree :: Label -> Value -> Bool
-isFree l (VVariable l') = l == l'
-isFree l (VPi l' a r) = isFree l a || (l /= l' && isFree l r)
-isFree l (VLambda l' r) = l /= l' && isFree l r
-isFree l (VApp f a) = isFree l f || isFree l a
-isFree l VBlank = False
-isFree l (VInt _) = False
-isFree l TInt = False
-isFree l TType = False
-isFree l (VPrimitive _ _ _ as) = any (isFree l) as
-
 -- Something that does not occur free in any of the values.
 newVariable :: [Value] -> Label
 newVariable vs = head $ filter (\l -> not $ any (isFree l) vs) $ map (('v':).show) [0..]
