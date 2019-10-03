@@ -1,0 +1,57 @@
+id : ∏t:Type -> t -> t
+id = \t:Type -> \x:t -> x
+
+Bool : Type
+Bool = ∏t:Type -> t -> t -> t
+
+true : Bool
+true = \t:Type -> \a:t, b:t -> a
+
+false : Bool
+false = \t:Type -> \a:t, b:t -> b
+
+Nat' : Type
+Nat' = ∏t:Type -> (t->t) -> t->t
+
+zero' : Nat'
+zero' = \t:Type -> \f:(t->t) -> id t
+
+succ' : Nat' -> Nat'
+succ' = \n:Nat' -> \t:Type, f:(t->t), a:t -> f (n t f a)
+
+one' : Nat'
+one' = succ' zero'
+two' : Nat'
+two' = succ' one'
+
+nat'ToInt : Nat' -> Int
+nat'ToInt = \n:Nat' -> n Int (+ 1) 0
+
+plus' : Nat' -> Nat' -> Nat'
+plus' = \n:Nat', m:Nat' -> \t:Type, f:(t->t), a:t -> n t f (m t f a)
+
+times' : Nat' -> Nat' -> Nat'
+times' = \n:Nat', m:Nat' -> \t:Type, f:(t->t) -> n t (m t f)
+
+exp' : Nat' -> Nat' -> Nat'
+exp' = \x:Nat', b:Nat' -> \t:Type -> b (t->t) (x t)
+
+isZero' : Nat' -> Bool
+isZero' = \n:Nat' -> n Bool (\b:Bool -> false) true
+
+{-
+Nat : Type
+Nat = ∑n:Nat'.(n succ' zero' = n) 
+
+--I don't think this will actually work, as I'd have to prove (n Nat succ zero = n) first in order to show that n = m.
+natInduct : ∏P:(Nat->Type) -> P zero -> (∏n:Nat -> P n -> P (succ n)) -> ∏n:Nat -> P n
+natInduct = \P:(Nat->Type), base:P zero, step:(∏n:Nat -> ∏hyp:P n -> P (succ n)) -> \n:Nat -> n (∑m:Nat . P m) (\p:(∑m:Nat . P m) -> (succ (fst p), step (fst p) (snd p))) (zero, base)
+
+inductionLemma : ∏n:Nat -> n Nat succ zero = n
+inductionLemma = --probably need extensionality of equality for functions.
+
+etaInductionlemma : ∏n:Nat -> ∏t:Type -> ∏f:(t->t) -> ∏a:t -> n Nat succ zero t f a = n t f a
+-- I don't think I'm actually getting closer to refuting Y.
+
+-- I guess this is probably technically possible if I go through Girard's Paradox.
+-}

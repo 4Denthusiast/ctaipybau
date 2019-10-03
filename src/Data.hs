@@ -13,16 +13,17 @@ import Text.Parsec (ParseError)
 
 type Label = String
 
-data Expr = EVariable Label | EPi Label Expr Expr | ELambda Label Expr Expr | EApp Expr Expr | EInt Int | EType
+data Expr = EVariable Label | EPi Label Expr Expr | ELambda Label Expr Expr | EApp Expr Expr | EBlank | EInt Int | EType
 
-data Value = VVariable Label | VPi Label Value Value | VLambda Label Value | VApp Value Value | VBlank | VInt Int | TInt | TType | VPrimitive String ([Value] -> Maybe Value) Int [Value] -- TODO: explicitly include arity in VPrimitive rather than leaving it curried, so partially applied versions can be treated properly.
+ -- (VBlank True n) is the type of (VBlank False n).
+data Value = VVariable Label | VPi Label Value Value | VLambda Label Value | VApp Value Value | VBlank Bool Int | VInt Int | TInt | TType | VPrimitive String ([Value] -> Maybe Value) Int [Value]
 
 isFree :: Label -> Value -> Bool
 isFree l (VVariable l') = l == l'
 isFree l (VPi l' a r) = isFree l a || (l /= l' && isFree l r)
 isFree l (VLambda l' r) = l /= l' && isFree l r
 isFree l (VApp f a) = isFree l f || isFree l a
-isFree l VBlank = False
+isFree l (VBlank _) = False
 isFree l (VInt _) = False
 isFree l TInt = False
 isFree l TType = False
@@ -39,6 +40,7 @@ instance Show Expr where
     showsPrec n (EPi l a r) = sp n 8 $ ss ("∏"++l++":") . showsPrec 11 a . ss " -> " . showsPrec 8 r
     showsPrec n (ELambda l a r) = sp n 8 $ ss ("λ"++l++":") . showsPrec 11 a . ss " -> " . showsPrec 8 r
     showsPrec n (EApp f a) = sp n 10 $ showsPrec 10 f . ss " " . showsPrec 11 a
+    showsPrec _ EBlank = ss "_"
     showsPrec _ (EInt i) = shows i
     showsPrec _ EType = ss "Type"
 
@@ -49,7 +51,8 @@ instance Show Value where
         where showLambda (VLambda l' r') = ss (", "++l') . showLambda r'
               showLambda r' = ss " -> " . showsPrec 8 r'
     showsPrec n (VApp f a) = sp n 10 $ showsPrec 10 f . ss " " . showsPrec 11 a
-    showsPrec _ VBlank = ss "_"
+    showsPrec _ (VBlank False n) = ss  "_" . shows n
+    showsPrec _ (VBlank True  n) = ss "'_" . shows n
     showsPrec _ (VInt i) = shows i
     showsPrec _ TInt = ss "Int"
     showsPrec _ TType = ss "Type"

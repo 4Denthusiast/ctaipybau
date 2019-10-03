@@ -61,6 +61,7 @@ parseTerm =
     <|> EPi <$> ((keyword "∏" <|> keyword "'\\") >> parseLabel) <*> (keyword ":" >> parseExpr1) <*> (keyword "->" >> parseExpr)
     <|> (flip $ foldr $ uncurry ELambda) <$> ((keyword "λ" <|> keyword "\\") >> sepBy1 ((,) <$> parseLabel <*> (keyword ":" >> parseExpr1)) (keyword ",")) <*> (keyword "->" >> parseExpr)
     <|> (keyword "Type" >> return EType)
+    <|> (keyword "_" >> return EBlank)
     <|> EVariable <$> parseLabel
 
 parseTypeDec :: Parsec String () (Label, Expr)
